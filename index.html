@@ -3,566 +3,202 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Discord メッセージ削除ツール</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#a9ceec" />
+  <title>メッセージ削除</title>
+  <meta name="description" content="" />
+  <link rel="icon" href="https://i.ibb.co/39dXLvV3/Freeze-logo.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    /* 全体レイアウト・色調設定 */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #202225; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #5865f2; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7289da; }
+    *, *::before, *::after { box-sizing: border-box; }
     body {
-      margin: 0;
-      padding: 5px;
-      background: #1f1f1f;
-      color: #f0f0f0;
-      font-family: Arial, sans-serif;
-      font-size: 13px;
-      text-align: left;
-    }
-    .container {
-      max-width: 400px;
-      margin: 0;
-    }
-    /* アコーディオン */
-    details.accordion {
-      background: #2b2b2b;
-      margin-bottom: 5px;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    details.accordion summary {
-      background: #66d9ff;
-      padding: 6px 8px;
-      cursor: pointer;
-      font-weight: bold;
-      color: #1f1f1f;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg,#2f3136,#1e1f22);
+      color:#fff;
+      margin:0; padding:0;
+      display:flex; justify-content:center; align-items:center;
+      height:100vh;
       user-select: none;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      -moz-user-select: none;
     }
-    details.accordion[open] summary {
-      border-bottom: 1px solid #66d9ff;
+    .card {
+      background:#36393f;
+      padding:32px;
+      border-radius:20px;
+      box-shadow:0 15px 35px rgba(0,0,0,.5);
+      width:100%; max-width:600px;
+      animation:fadeIn .8s ease;
+      overflow-y:auto;
+      overflow-x:hidden;
+      max-height:95vh;
     }
-    .section-content {
-      padding: 6px 8px;
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
     }
-    /* 入力系 */
-    label {
-      display: block;
-      margin: 4px 0 2px;
-      font-weight: bold;
+    h2 { color:#adb8ff; text-align:center; margin:0 0 24px; font-weight:600; }
+    label { display:block; margin-top:18px; font-size:14px; }
+    input[type="text"], input[type="password"], textarea {
+      width:100%; padding:10px; margin-top:6px;
+      border-radius:8px; border:none;
+      background:#202225; color:#fff;
+      font-family:monospace; resize:vertical;
     }
-    input[type="text"],
-    textarea {
-      width: 100%;
-      padding: 4px;
-      margin-bottom: 4px;
-      border: 1px solid #444;
-      border-radius: 3px;
-      background: #333;
-      color: #f0f0f0;
+    textarea { overflow-y:auto; }
+    input[type="number"] {
+      padding:6px; margin-top:6px;
+      border-radius:8px; border:none;
+      background:#202225; color:#fff;
+      font-family:monospace; appearance:none;
+      width:80px;
     }
-    textarea {
-      resize: vertical;
-      min-height: 40px;
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance:none; margin:0;
     }
-    input[type="checkbox"] {
-      margin-right: 4px;
+    .row {
+      display:flex; gap:12px; align-items:center;
     }
-    button {
-      width: 100%;
-      padding: 6px;
-      background: #66d9ff;
-      border: none;
-      border-radius: 3px;
-      color: #1f1f1f;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 4px;
+    .row > * { flex:none; }
+    .row label,
+    .row .checkbox-container { margin-top:0; }
+    .checkbox-container {
+      display:flex; align-items:center; gap:8px;
+      cursor:pointer; font-size:14px; user-select:none;
+      margin-top:6px;
     }
-    button:hover {
-      background: #4ab3e5;
+    .checkbox-container input {
+      appearance:none; width:36px; height:18px;
+      background:#4f545c; border-radius:18px;
+      position:relative; transition:background .3s ease;
     }
-    .status {
-      margin-top: 4px;
-      color: #ff5555;
+    .checkbox-container:hover input { background:#5a5f68; }
+    .checkbox-container input:focus {
+      outline:none; box-shadow:0 0 0 3px rgba(114,137,218,0.5);
     }
-    .info {
-      font-size: 11px;
-      color: #aaa;
-      margin-top: 2px;
+    .checkbox-container input::before {
+      content:''; position:absolute;
+      width:14px; height:14px; border-radius:50%;
+      background:#fff; top:2px; left:2px;
+      transition:transform .3s cubic-bezier(.68,-.55,.27,1.55);
     }
-    /* 非表示用クラス */
-    .hidden {
-      display: none;
+    .checkbox-container input:checked { background:#7289da; }
+    .checkbox-container input:checked::before {
+      transform:translateX(18px);
     }
-    /* ログ枠 */
-    #log-container {
-      margin-top: 5px;
-      background: #2b2b2b;
-      border: 1px solid #444;
-      border-radius: 3px;
-      padding: 4px;
-      height: 100px;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
+    .checkbox-container span { transition:color .3s; }
+    .checkbox-container input:checked + span {
+      color:#adb8ff;
+    }
+    button.primary, button.secondary {
+      margin-top:12px; width:auto; min-width:140px; padding:7px 14px;
+      border:none; border-radius:10px;
+      font-weight:600; font-size:14px;
+      letter-spacing:.2px; cursor:pointer; position:relative;
+      overflow:hidden; transition:all .2s;
+    }
+    button.primary {
+      background:linear-gradient(135deg,#6d75ff,#5865f2);
+      color:#fff;
+      box-shadow:0 2px 8px rgba(88,101,242,.25),0 0 4px rgba(255,255,255,.08),inset 0 0 2px rgba(255,255,255,.12);
+    }
+    button.secondary {
+      background:linear-gradient(135deg,#e74c3c,#c0392b);
+      color:#fff;
+      box-shadow:0 2px 8px rgba(236,81,81,.25),0 0 4px rgba(255,255,255,.08),inset 0 0 2px rgba(255,255,255,.12);
+    }
+    button.disabled-btn {
+      background: #ccc !important;
+      color: #fff !important;
+      box-shadow: none !important;
+      cursor: not-allowed !important;
+    }
+    .button-container {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    #logArea { margin-top:20px; padding:10px; height:120px; overflow-y:auto; background:#202225; border-radius:10px; font-family:monospace; font-size:12px; white-space:pre-wrap; resize: vertical;}
+    @media (max-width: 600px) {
+      .card {
+        padding: 16px;
+        max-width: 95%;
+        border-radius: 10px;
+      }
+      h2 {
+        font-size: 18px;
+        margin-bottom: 16px;
+      }
+      label {
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      input[type="text"],
+      input[type="password"],
+      textarea {
+        padding: 8px;
+        font-size: 12px;
+      }
+      textarea {
+        height: auto;
+        min-height: 60px;
+      }
+      button.primary,
+      button.secondary {
+        padding: 10px;
+        font-size: 16px;
+        width: 100%;
+        margin-top: 12px;
+      }
+      .button-container {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .checkbox-container {
+        font-size: 13px;
+        flex-direction: row;
+      }
+      #logArea {
+        height: 80px;
+        font-size: 11px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- グローバルトークン設定 -->
-    <details class="accordion" id="accordion-token">
-      <summary>グローバルトークン設定</summary>
-      <div class="section-content">
-        <label for="global-token">Bot Token</label>
-        <input type="text" id="global-token" placeholder="Bot Tokenを入力">
-        <p class="info">全機能で使用</p>
-      </div>
-    </details>
-    <!-- DMメッセージ削除 -->
-    <details class="accordion" id="accordion-dm">
-      <summary>DMメッセージ削除</summary>
-      <div class="section-content">
-        <input type="checkbox" id="dm-all">
-        <label for="dm-all" style="display:inline;">すべてのDMを削除する</label>
-        <div id="dm-channel-container">
-          <label for="dm-channelId">DMチャンネルID (特定の場合)</label>
-          <input type="text" id="dm-channelId" placeholder="例: 123456789012345678">
-        </div>
-        <button onclick="deleteDMMessages()">削除開始</button>
-        <p id="dm-status" class="status"></p>
-      </div>
-    </details>
-    <!-- サーバーメッセージ削除 -->
-    <details class="accordion" id="accordion-server">
-      <summary>サーバーメッセージ削除</summary>
-      <div class="section-content">
-        <input type="checkbox" id="server-all">
-        <label for="server-all" style="display:inline;">すべてのサーバー・全チャンネルを削除する</label>
-        <div id="server-guild-container">
-          <label for="server-guildId">Guild ID (特定の場合)</label>
-          <input type="text" id="server-guildId" placeholder="例: 123456789012345678">
-        </div>
-        <div id="server-channel-container">
-          <label for="server-channelIds">チャンネルID（特定の場合、改行区切り）</label>
-          <textarea id="server-channelIds" placeholder="例:
+  <div class="card">
+    <h2>Freeze☭メッセージ削除ツール</h2>
+    <label for="global-token">Bot Token</label>
+    <input type="password" id="global-token" placeholder="Bot Tokenを入力">
+    <div class="row checkbox-container">
+      <input type="checkbox" id="dm-all">
+      <span>すべてのDMを削除する</span>
+    </div>
+    <div id="dm-channel-container">
+  <label for="dm-channelId">DMチャンネルID (必須)</label>
+  <input type="text" id="dm-channelId" placeholder="例: 123456789012345678">
+    </div>
+    <button class="primary" onclick="deleteDMMessages()">DM削除開始</button>
+    <p id="dm-status" class="status"></p>
+    <label for="server-guildId">Guild ID (特定の場合)</label>
+    <input type="text" id="server-guildId" placeholder="例: 123456789012345678">
+    <label for="server-channelIds">チャンネルID（特定の場合、改行区切り）</label>
+    <textarea id="server-channelIds" placeholder="例:
 111111111111111111
 222222222222222222"></textarea>
-        </div>
-        <button id="server-startBtn">削除開始</button>
-        <p id="server-status" class="status"></p>
-      </div>
-    </details>
-    <!-- ログ枠 -->
-    <div id="log-container"></div>
+    <button class="primary" id="server-startBtn">サーバーメッセージ削除開始</button>
+    <p id="server-status" class="status"></p>
+    <div id="logArea">ログがここに表示されます</div>
   </div>
 
   <!-- axios CDN -->
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script>
-    /***** ログ処理 *****/
-    function addLog(message) {
-      const now = new Date().toLocaleTimeString();
-      const logContainer = document.getElementById("log-container");
-      logContainer.innerText += `[${now}] ${message}\n`;
-      logContainer.scrollTop = logContainer.scrollHeight;
-    }
-
-    /***** localStorage 関連 *****/
-    function saveInput(id) {
-      const el = document.getElementById(id);
-      if(el) localStorage.setItem(id, el.value);
-    }
-    function loadInput(id) {
-      const el = document.getElementById(id);
-      const saved = localStorage.getItem(id);
-      if (el && saved !== null) {
-        el.value = saved;
-      }
-    }
-    function saveCheckbox(id) {
-      const el = document.getElementById(id);
-      if(el) localStorage.setItem(id, el.checked);
-    }
-    function loadCheckbox(id) {
-      const el = document.getElementById(id);
-      const saved = localStorage.getItem(id);
-      if (el && saved !== null) {
-        el.checked = (saved === "true");
-      }
-    }
-    function saveAccordionState(id, isOpen) {
-      localStorage.setItem("accordion-" + id, isOpen);
-    }
-    function loadAccordionState(id) {
-      const saved = localStorage.getItem("accordion-" + id);
-      return saved === "true";
-    }
-    window.addEventListener("load", () => {
-      loadInput("global-token");
-      loadInput("dm-channelId");
-      loadInput("server-guildId");
-      loadInput("server-channelIds");
-      loadCheckbox("dm-all");
-      loadCheckbox("server-all");
-      const accToken = document.getElementById("accordion-token");
-      const accDM = document.getElementById("accordion-dm");
-      const accServer = document.getElementById("accordion-server");
-      if(loadAccordionState("accordion-token")) accToken.setAttribute("open", "");
-      if(loadAccordionState("accordion-dm")) accDM.setAttribute("open", "");
-      if(loadAccordionState("accordion-server")) accServer.setAttribute("open", "");
-      updateDMChannelVisibility();
-      updateServerInputVisibility();
-    });
-    document.getElementById("global-token").addEventListener("input", () => { saveInput("global-token"); });
-    document.getElementById("dm-channelId").addEventListener("input", () => { saveInput("dm-channelId"); });
-    document.getElementById("server-guildId").addEventListener("input", () => { saveInput("server-guildId"); });
-    document.getElementById("server-channelIds").addEventListener("input", () => { saveInput("server-channelIds"); });
-    document.getElementById("dm-all").addEventListener("change", () => {
-      saveCheckbox("dm-all");
-      updateDMChannelVisibility();
-    });
-    document.getElementById("server-all").addEventListener("change", () => {
-      saveCheckbox("server-all");
-      updateServerInputVisibility();
-    });
-    document.querySelectorAll("details.accordion").forEach(detail => {
-      detail.addEventListener("toggle", () => {
-        saveAccordionState(detail.id, detail.open);
-      });
-    });
-    function updateDMChannelVisibility() {
-      const dmAll = document.getElementById("dm-all").checked;
-      const container = document.getElementById("dm-channel-container");
-      container.classList.toggle("hidden", dmAll);
-    }
-    function updateServerInputVisibility() {
-      const serverAll = document.getElementById("server-all").checked;
-      document.getElementById("server-guild-container").classList.toggle("hidden", serverAll);
-      document.getElementById("server-channel-container").classList.toggle("hidden", serverAll);
-    }
-
-    /***** 非同期スリープ *****/
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    /***** 共通: グローバルトークン取得 *****/
-    function getGlobalToken() {
-      return document.getElementById("global-token").value.trim();
-    }
-    
-    /***** DMメッセージ削除処理（改良版） *****/
-    async function deleteDMMessages() {
-      const token = getGlobalToken();
-      const statusElement = document.getElementById("dm-status");
-      if (!token) {
-        statusElement.textContent = "Bot Tokenを入力してください。";
-        addLog("Bot Token未入力 (DM)");
-        return;
-      }
-      addLog("DM削除処理開始");
-
-      // 自分のユーザーIDを取得
-      let myUserId;
-      try {
-        const response = await axios.get("https://discord.com/api/v9/users/@me", {
-          headers: { Authorization: token }
-        });
-        myUserId = response.data.id;
-      } catch (error) {
-        statusElement.textContent = "ユーザーIDの取得に失敗しました。";
-        addLog("ユーザーID取得失敗 (DM): " + error);
-        return;
-      }
-
-      let dmChannels = [];
-      const deleteAll = document.getElementById("dm-all").checked;
-      if (deleteAll) {
-        try {
-          const response = await axios.get("https://discord.com/api/v9/users/@me/channels", {
-            headers: { Authorization: token }
-          });
-          dmChannels = response.data;
-          if (!Array.isArray(dmChannels)) {
-            statusElement.textContent = "DMチャンネルの取得に失敗しました。";
-            addLog("DMチャンネル取得失敗");
-            return;
-          }
-          addLog("全DMチャンネル取得: " + dmChannels.length + "件");
-        } catch (error) {
-          statusElement.textContent = "DMチャンネルの取得エラー。";
-          addLog("DMチャンネル取得エラー: " + error);
-          console.error(error);
-          return;
-        }
-      } else {
-        const channelId = document.getElementById("dm-channelId").value.trim();
-        if (!channelId) {
-          statusElement.textContent = "DMチャンネルIDを入力してください。";
-          addLog("DMチャンネルID未入力");
-          return;
-        }
-        dmChannels.push({ id: channelId });
-      }
-      
-      let totalDeleted = 0;
-      // 各DMチャンネルごとに、外側ループで完全削除が完了するまで繰り返す
-      for (const channel of dmChannels) {
-        const channelId = channel.id;
-        while (true) {
-          let offset = 0;
-          let hasMoreMessages = true;
-          const endpoint = `https://discord.com/api/v9/channels/${channelId}/messages/search`;
-          // 内側ループ：offsetごとにメッセージ取得＆削除
-          while (hasMoreMessages) {
-            let response;
-            try {
-              response = await axios.get(endpoint, {
-                headers: { Authorization: token },
-                params: { author_id: myUserId, offset: offset }
-              });
-            } catch (error) {
-              addLog("メッセージ検索エラー (DM): " + error);
-              console.error(error);
-              hasMoreMessages = false;
-              break;
-            }
-            const messages = response.data.messages.flat();
-            const totalResults = response.data.total_results;
-            console.log(`Total messages in DM channel: ${totalResults}`);
-            console.log(`Current offset: ${offset}`);
-            console.log(`Messages fetched: ${messages.length}`);
-            if (messages.length === 0) {
-              addLog(`Channel ${channelId} のメッセージはもうありません。`);
-              hasMoreMessages = false;
-              break;
-            }
-            for (const message of messages) {
-              try {
-                await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${message.id}`, {
-                  headers: { Authorization: token }
-                });
-                console.log(`Deleted message ID: ${message.id}`);
-                totalDeleted++;
-                statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
-                await sleep(500);
-              } catch (error) {
-                console.error(`削除失敗 (DM): ${message.id}`, error.response?.data || error.message);
-              }
-            }
-            offset += 25;
-            if (offset >= totalResults) break;
-          }
-          // 削除パス終了後、再取得して残メッセージがなければループ抜ける
-          let remainingResponse;
-          try {
-            remainingResponse = await axios.get(endpoint, {
-              headers: { Authorization: token },
-              params: { author_id: myUserId, offset: 0 }
-            });
-          } catch (error) {
-            addLog("再取得エラー (DM): " + error);
-            console.error(error);
-            break;
-          }
-          const remainingMessages = remainingResponse.data.messages.flat();
-          if (remainingMessages.length === 0) {
-            addLog(`Channel ${channelId} の全メッセージ削除完了。`);
-            break;
-          } else {
-            addLog(`Channel ${channelId} にまだ ${remainingMessages.length} 件のメッセージがあります。再試行します。`);
-          }
-        }
-      }
-      statusElement.textContent = `削除完了: ${totalDeleted} 件`;
-      addLog("DM削除完了: " + totalDeleted + "件");
-    }
-    
-    /***** サーバーメッセージ削除処理（改良版） *****/
-    document.getElementById("server-startBtn").addEventListener("click", async () => {
-      const token = getGlobalToken();
-      const statusElement = document.getElementById("server-status");
-      if (!token) {
-        statusElement.textContent = "Bot Tokenを入力してください。";
-        addLog("Bot Token未入力 (Server)");
-        return;
-      }
-      addLog("サーバーメッセージ削除処理開始");
-      const serverAll = document.getElementById("server-all").checked;
-      let guildIds = [];
-      let channelIds = [];
-      if (!serverAll) {
-        const guildId = document.getElementById("server-guildId").value.trim();
-        if (!guildId) {
-          statusElement.textContent = "Guild IDを入力してください。";
-          addLog("Guild ID未入力");
-          return;
-        }
-        guildIds.push(guildId);
-        const channelsInput = document.getElementById("server-channelIds").value.trim();
-        if (channelsInput) {
-          channelIds = channelsInput.split("\n").map(line => line.trim()).filter(line => line);
-        }
-      } else {
-        try {
-          const response = await axios.get("https://discord.com/api/v9/users/@me/guilds", {
-            headers: { Authorization: token }
-          });
-          guildIds = response.data.map(guild => guild.id);
-          addLog("全Guild取得: " + guildIds.length + "件");
-        } catch (error) {
-          statusElement.textContent = "Guild一覧の取得に失敗しました。";
-          addLog("Guild取得失敗: " + error);
-          console.error(error);
-          return;
-        }
-      }
-      let AUTHOR_ID;
-      try {
-        const meResponse = await axios.get("https://discord.com/api/v9/users/@me", {
-          headers: { Authorization: token }
-        });
-        AUTHOR_ID = meResponse.data.id;
-      } catch (error) {
-        statusElement.textContent = "BotのユーザーID取得に失敗しました。";
-        addLog("ユーザーID取得失敗: " + error);
-        console.error(error);
-        return;
-      }
-      let totalDeleted = 0;
-      
-      // 各ギルドについて処理
-      for (const guildId of guildIds) {
-        if (!serverAll && channelIds.length > 0) {
-          for (const channelId of channelIds) {
-            while (true) {
-              let offset = 0;
-              let hasMoreMessages = true;
-              const endpoint = `https://discord.com/api/v9/guilds/${guildId}/messages/search`;
-              while (hasMoreMessages) {
-                let response;
-                try {
-                  response = await axios.get(endpoint, {
-                    headers: { Authorization: token },
-                    params: { author_id: AUTHOR_ID, offset: offset, channel_id: channelId }
-                  });
-                } catch (error) {
-                  addLog("メッセージ検索エラー (Server): " + error);
-                  console.error(error);
-                  hasMoreMessages = false;
-                  break;
-                }
-                const messages = response.data.messages.flat();
-                const totalResults = response.data.total_results;
-                console.log(`Total messages in server: ${totalResults}`);
-                console.log(`Current offset: ${offset}`);
-                console.log(`Messages fetched: ${messages.length}`);
-                if (messages.length === 0) { 
-                  addLog(`Channel ${channelId} のメッセージはもうありません。`);
-                  hasMoreMessages = false;
-                  break; 
-                }
-                for (const message of messages) {
-                  try {
-                    await axios.delete(`https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`, {
-                      headers: { Authorization: token }
-                    });
-                    console.log(`Deleted message ID: ${message.id}`);
-                    totalDeleted++;
-                    statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
-                    await sleep(500);
-                  } catch (error) {
-                    console.error(`削除失敗 (Server): ${message.id}`, error.response?.data || error.message);
-                  }
-                }
-                offset += 25;
-                if (offset >= totalResults) { break; }
-              }
-              let remainingResponse;
-              try {
-                remainingResponse = await axios.get(endpoint, {
-                  headers: { Authorization: token },
-                  params: { author_id: AUTHOR_ID, offset: 0, channel_id: channelId }
-                });
-              } catch (error) {
-                addLog("再取得エラー (Server): " + error);
-                console.error(error);
-                break;
-              }
-              const remainingMessages = remainingResponse.data.messages.flat();
-              if (remainingMessages.length === 0) {
-                addLog(`Channel ${channelId} の全メッセージ削除完了。`);
-                break;
-              } else {
-                addLog(`Channel ${channelId} にまだ ${remainingMessages.length} 件のメッセージがあります。再試行します。`);
-              }
-            }
-          }
-        } else {
-          while (true) {
-            let offset = 0;
-            let hasMoreMessages = true;
-            const endpoint = `https://discord.com/api/v9/guilds/${guildId}/messages/search`;
-            while (hasMoreMessages) {
-              let response;
-              try {
-                response = await axios.get(endpoint, {
-                  headers: { Authorization: token },
-                  params: { author_id: AUTHOR_ID, offset: offset }
-                });
-              } catch (error) {
-                addLog("全Guildメッセージ検索エラー (Server): " + error);
-                console.error(error);
-                hasMoreMessages = false;
-                break;
-              }
-              const messages = response.data.messages.flat();
-              const totalResults = response.data.total_results;
-              console.log(`Total messages in server: ${totalResults}`);
-              console.log(`Current offset: ${offset}`);
-              console.log(`Messages fetched: ${messages.length}`);
-              if (messages.length === 0) { 
-                addLog(`Guild ${guildId} のメッセージはもうありません。`);
-                hasMoreMessages = false;
-                break; 
-              }
-              for (const message of messages) {
-                try {
-                  await axios.delete(`https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`, {
-                    headers: { Authorization: token }
-                  });
-                  console.log(`Deleted message ID: ${message.id}`);
-                  totalDeleted++;
-                  statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
-                  await sleep(500);
-                } catch (error) {
-                  console.error(`削除失敗 (Server): ${message.id}`, error.response?.data || error.message);
-                }
-              }
-              offset += 25;
-              if (offset >= totalResults) { break; }
-            }
-            let remainingResponse;
-            try {
-              remainingResponse = await axios.get(endpoint, {
-                headers: { Authorization: token },
-                params: { author_id: AUTHOR_ID, offset: 0 }
-              });
-            } catch (error) {
-              addLog("再取得エラー (Server): " + error);
-              console.error(error);
-              break;
-            }
-            const remainingMessages = remainingResponse.data.messages.flat();
-            if (remainingMessages.length === 0) {
-              addLog(`Guild ${guildId} の全メッセージ削除完了。`);
-              break;
-            } else {
-              addLog(`Guild ${guildId} にまだ ${remainingMessages.length} 件のメッセージがあります。再試行します。`);
-            }
-          }
-        }
-      }
-      statusElement.textContent = `削除完了: ${totalDeleted} 件`;
-      addLog("サーバーメッセージ削除完了: " + totalDeleted + "件");
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
