@@ -78,13 +78,37 @@ async function deleteDMMessages() {
     addLog("Bot Token未入力 (DM)");
     return;
   }
-  addLog("DM削除処理開始(自分の全メッセージ)");
 
-  const channelId = document.getElementById("dm-channelId").value.trim();
-  if (!channelId) {
-    statusElement.textContent = "DMチャンネルIDを入力してください。";
-    addLog("DMチャンネルID未入力");
-    return;
+  // 「すべてのDMを削除する」チェックボックスの状態を取得
+  const dmAll = document.getElementById("dm-all").checked;
+  let channelIds = [];
+  if (dmAll) {
+    addLog("全DMチャンネルを取得中...");
+    // 全DMチャンネル一覧を取得
+    try {
+      const res = await axios.get("https://discord.com/api/v9/users/@me/channels", {
+        headers: { Authorization: token }
+      });
+      channelIds = res.data.filter(c => c.type === 1 || c.type === 3).map(c => c.id); // type 1: DM, type 3: Group DM
+      addLog(`取得したDMチャンネル数: ${channelIds.length}`);
+    } catch (error) {
+      statusElement.textContent = "DMチャンネル一覧取得失敗";
+      addLog("DMチャンネル一覧取得失敗: " + error);
+      return;
+    }
+    if (channelIds.length === 0) {
+      statusElement.textContent = "DMチャンネルが見つかりません。";
+      addLog("DMチャンネルが見つかりません");
+      return;
+    }
+  } else {
+    const channelId = document.getElementById("dm-channelId").value.trim();
+    if (!channelId) {
+      statusElement.textContent = "DMチャンネルIDを入力してください。";
+      addLog("DMチャンネルID未入力");
+      return;
+    }
+    channelIds = [channelId];
   }
 
   // 自分のユーザーID取得
@@ -101,40 +125,44 @@ async function deleteDMMessages() {
   }
 
   let totalDeleted = 0;
-  let hasMore = true;
-  let lastMessageId = undefined;
-  while (hasMore) {
-    let response;
-    try {
-      response = await axios.get(`https://discord.com/api/v9/channels/${channelId}/messages`, {
-        headers: { Authorization: token },
-        params: lastMessageId ? { before: lastMessageId, limit: 100 } : { limit: 100 }
-      });
-    } catch (error) {
-      addLog("メッセージ取得エラー: " + error);
-      statusElement.textContent = "メッセージ取得エラー";
-      break;
-    }
-    const messages = response.data;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      hasMore = false;
-      break;
-    }
-    // 自分のメッセージのみ削除
-    const myMessages = messages.filter(msg => msg.author && msg.author.id === myUserId);
-    for (const message of myMessages) {
+  for (const channelId of channelIds) {
+    addLog(`DMチャンネル ${channelId} のメッセージ削除開始`);
+    let hasMore = true;
+    let lastMessageId = undefined;
+    while (hasMore) {
+      let response;
       try {
-        await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${message.id}`, {
-          headers: { Authorization: token }
+        response = await axios.get(`https://discord.com/api/v9/channels/${channelId}/messages`, {
+          headers: { Authorization: token },
+          params: lastMessageId ? { before: lastMessageId, limit: 100 } : { limit: 100 }
         });
-        totalDeleted++;
-        statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
-        await sleep(500);
       } catch (error) {
-        addLog(`削除失敗: ${message.id} ${error.response?.data || error.message}`);
+        addLog(`メッセージ取得エラー (channel ${channelId}): ` + error);
+        statusElement.textContent = `メッセージ取得エラー (channel ${channelId})`;
+        break;
       }
+      const messages = response.data;
+      if (!Array.isArray(messages) || messages.length === 0) {
+        hasMore = false;
+        break;
+      }
+      // 自分のメッセージのみ削除
+      const myMessages = messages.filter(msg => msg.author && msg.author.id === myUserId);
+      for (const message of myMessages) {
+        try {
+          await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${message.id}`, {
+            headers: { Authorization: token }
+          });
+          totalDeleted++;
+          statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
+          await sleep(500);
+        } catch (error) {
+          addLog(`削除失敗: ${message.id} ${error.response?.data || error.message}`);
+        }
+      }
+      lastMessageId = messages[messages.length - 1].id;
     }
-    lastMessageId = messages[messages.length - 1].id;
+    addLog(`DMチャンネル ${channelId} の削除完了`);
   }
   statusElement.textContent = `削除完了: ${totalDeleted} 件`;
   addLog("DM削除完了: " + totalDeleted + "件");

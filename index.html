@@ -1,13 +1,24 @@
 <!DOCTYPE html> 
 <html lang="ja">
 <head>
+<!----------------------------------------------------------------->
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#a9ceec" />
-  <title>メッセージ削除</title>
+
+  <title>Freeze☭メッセージ消去ツール</title>
   <meta name="description" content="" />
+
   <link rel="icon" href="https://i.ibb.co/39dXLvV3/Freeze-logo.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:site_name"   content="Freeze" />
+  <meta property="og:title"       content="メッセージ消去ツール" />
+  <meta property="og:description" content="読んで字のごとく" />
+  <meta property="og:url"         content="" />
+  <meta property="og:image"       content="" />
+<!----------------------------------------------------------------->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     ::-webkit-scrollbar { width: 6px; }
@@ -186,9 +197,9 @@
     </div>
     <button class="primary" onclick="deleteDMMessages()">DM削除開始</button>
     <p id="dm-status" class="status"></p>
-    <label for="server-guildId">Guild ID (特定の場合)</label>
+    <label for="server-guildId">サーバーID</label>
     <input type="text" id="server-guildId" placeholder="例: 123456789012345678">
-    <label for="server-channelIds">チャンネルID（特定の場合、改行区切り）</label>
+    <label for="server-channelIds">チャンネルID（空欄で全チャンネル対象）</label>
     <textarea id="server-channelIds" placeholder="例:
 111111111111111111
 222222222222222222"></textarea>
