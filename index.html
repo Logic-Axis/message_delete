@@ -195,6 +195,10 @@
   <label for="dm-channelId">DMチャンネルID (必須)</label>
   <input type="text" id="dm-channelId" placeholder="例: 123456789012345678">
     </div>
+    <div id="dm-exclude-channel-container">
+      <label for="dm-exclude-channelIds">削除対象外のDMチャンネルID（任意）</label>
+      <textarea id="dm-exclude-channelIds" placeholder="改行またはカンマ区切りで入力"></textarea>
+    </div>
     <button class="primary" onclick="deleteDMMessages()">DM削除開始</button>
     <p id="dm-status" class="status"></p>
     <label for="server-guildId">サーバーID</label>

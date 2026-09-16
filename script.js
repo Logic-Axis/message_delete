@@ -42,6 +42,7 @@ function loadAccordionState(id) {
 window.addEventListener("load", () => {
   loadInput("global-token");
   loadInput("dm-channelId");
+  loadInput("dm-exclude-channelIds");
   loadInput("server-guildId");
   loadInput("server-channelIds");
   loadCheckbox("dm-all");
@@ -49,6 +50,7 @@ window.addEventListener("load", () => {
 });
 document.getElementById("global-token").addEventListener("input", () => { saveInput("global-token"); });
 document.getElementById("dm-channelId").addEventListener("input", () => { saveInput("dm-channelId"); });
+document.getElementById("dm-exclude-channelIds").addEventListener("input", () => { saveInput("dm-exclude-channelIds"); });
 document.getElementById("server-guildId").addEventListener("input", () => { saveInput("server-guildId"); });
 document.getElementById("server-channelIds").addEventListener("input", () => { saveInput("server-channelIds"); });
 document.getElementById("dm-all").addEventListener("change", () => {
@@ -58,7 +60,9 @@ document.getElementById("dm-all").addEventListener("change", () => {
 function updateDMChannelVisibility() {
   const dmAll = document.getElementById("dm-all").checked;
   const container = document.getElementById("dm-channel-container");
+  const excludeContainer = document.getElementById("dm-exclude-channel-container");
   container.style.display = dmAll ? "none" : "block";
+  excludeContainer.style.display = dmAll ? "block" : "none";
 }
 
 /***** 非同期スリープ *****/
@@ -315,6 +319,98 @@ async function deleteMessagesInChannel(channelId, token, myUserId, statusElement
   return channelDeleted;
 }
 
+async function deleteAllDMMessages(token, myUserId, excludedChannelIds, statusElement) {
+  const endpoint = "https://discord.com/api/v9/users/@me/messages/search/tabs";
+  let totalDeleted = 0;
+
+  addLog("全DMメッセージの検索を開始します。");
+
+  const pageSize = 25;
+
+  while (true) {
+    let searchOffset = 0;
+    let deletedInThisPass = 0;
+
+    while (true) {
+      let response;
+      try {
+        response = await axiosRequestWithRateLimit({
+          method: 'post',
+          url: endpoint,
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            tabs: {
+              messages: {
+                sort_by: 'timestamp',
+                sort_order: 'desc',
+                author_id: [myUserId],
+                author_type: ['user'],
+                offset: searchOffset,
+                limit: pageSize
+              }
+            },
+            track_exact_total_hits: true
+          }
+        }, `全DMメッセージ検索 offset=${searchOffset}`);
+      } catch (error) {
+        statusElement.textContent = "全DMメッセージ検索失敗";
+        addLog("全DMメッセージ検索エラー: " + error);
+        return totalDeleted;
+      }
+
+      const result = extractMessagesFromTabs(response.data?.tabs);
+      const messages = result.messages;
+      addLog(`全DMメッセージ取得数: ${messages.length}, 合計: ${result.totalResults}, offset: ${searchOffset}`);
+
+      if (messages.length === 0) {
+        break;
+      }
+
+      const deletableMessages = messages.filter((message) => {
+        return !excludedChannelIds.has(message.channel_id) && isRealUserMessage(message);
+      });
+
+      for (const message of deletableMessages) {
+        if (!message.channel_id || !message.id) {
+          addLog(`削除先チャンネルが特定できないためスキップ: ${message.id || 'unknown'}`);
+          continue;
+        }
+        try {
+          await axiosRequestWithRateLimit({
+            method: 'delete',
+            url: `https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`,
+            headers: { Authorization: token }
+          }, `DMメッセージ削除 (${message.id})`);
+          totalDeleted++;
+          deletedInThisPass++;
+          statusElement.textContent = `削除中… (${totalDeleted} 件削除)`;
+          await sleep(500);
+        } catch (error) {
+          if (error.response?.status === 403) {
+            addLog(`削除不可（権限/システム）: ${message.id} | ${error.response?.data?.message || error.message}`);
+          } else {
+            addLog(`削除失敗: ${message.id} | Status: ${error.response?.status} | ${error.response?.data?.message || error.message}`);
+          }
+        }
+      }
+
+      searchOffset += messages.length;
+    }
+
+    if (deletedInThisPass === 0) {
+      addLog("削除対象メッセージがなくなったため、全DM削除を終了します。");
+      break;
+    }
+
+    addLog(`${deletedInThisPass}件削除したため、残りのメッセージを再確認します。`);
+  }
+
+  return totalDeleted;
+}
+
 /***** DMメッセージ削除処理（改良版） *****/
 async function deleteDMMessages() {
   const token = getGlobalToken();
@@ -327,28 +423,15 @@ async function deleteDMMessages() {
 
   // 「すべてのDMを削除する」チェックボックスの状態を取得
   const dmAll = document.getElementById("dm-all").checked;
+  const excludedChannelIds = new Set(
+    document.getElementById("dm-exclude-channelIds").value
+      .split(/[\s,]+/)
+      .map((channelId) => channelId.trim())
+      .filter(Boolean)
+  );
   let channelIds = [];
   if (dmAll) {
-    addLog("全DMチャンネルを取得中...");
-    // 全DMチャンネル一覧を取得
-    try {
-      const res = await axiosRequestWithRateLimit({
-        method: 'get',
-        url: "https://discord.com/api/v9/users/@me/channels",
-        headers: { Authorization: token }
-      }, 'DMチャンネル一覧取得');
-      channelIds = res.data.filter(c => c.type === 1 || c.type === 3).map(c => c.id); // type 1: DM, type 3: Group DM
-      addLog(`取得したDMチャンネル数: ${channelIds.length}`);
-    } catch (error) {
-      statusElement.textContent = "DMチャンネル一覧取得失敗";
-      addLog("DMチャンネル一覧取得失敗: " + error);
-      return;
-    }
-    if (channelIds.length === 0) {
-      statusElement.textContent = "DMチャンネルが見つかりません。";
-      addLog("DMチャンネルが見つかりません");
-      return;
-    }
+    channelIds = [];
   } else {
     const channelId = document.getElementById("dm-channelId").value.trim();
     if (!channelId) {
@@ -377,9 +460,10 @@ async function deleteDMMessages() {
   let totalDeleted = 0;
   
   if (dmAll) {
-    for (const channelId of channelIds) {
-      totalDeleted += await deleteMessagesInChannel(channelId, token, myUserId, statusElement);
+    if (excludedChannelIds.size > 0) {
+      addLog(`削除対象外チャンネル: ${[...excludedChannelIds].join(', ')}`);
     }
+    totalDeleted = await deleteAllDMMessages(token, myUserId, excludedChannelIds, statusElement);
   } else {
     // 特定チャンネルのメッセージのみ削除
     for (const channelId of channelIds) {
